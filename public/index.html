@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>RastreaFormacom</title>
+  <!-- pink-themed bootstrap from bootswatch -->
+  <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/lux/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+	<nav class="navbar navbar-light bg-light">
+		<div class="container">
+			<a class="navbar-brand" href="#">RastreaFormacom</a>
+			<div id="navActions">
+				<a class="btn btn-outline-primary me-2" href="login.html">Login</a>
+				<a class="btn btn-primary" href="register.html">Registrarse</a>
+			</div>
+			<div id="loggedActions" style="display:none;">
+				<a class="btn btn-outline-primary me-2" href="dashboard.html">Dashboard</a>
+				<button id="logoutBtnNav" class="btn btn-success">Cerrar sesión</button>
+			</div>
+		</div>
+	</nav>
+</header>
+<main class="flex-grow-1">
+
+	<div class="container mt-5">
+	  <div class="text-center">
+      <h1 class="mb-4">Buscar contactos</h1>
+      <div class="input-group mb-3 justify-content-center">
+        <input type="text" id="searchInput" class="form-control w-50" placeholder="Escribe término de búsqueda...">
+        <button id="searchBtn" class="btn btn-primary">Buscar</button>
+      </div>
+      <div id="resultsArea">
+        <!-- resultados de contactos y google aparecerán aquí -->
+      </div>
+    </div>
+  </div>
+
+  </div>
+</main>
+
+  <footer class="text-center py-3 mt-4" style="background:#ffc0cb;">
+    <div class="container">
+      <small>&copy; 2026 RastreaFormacom. Todos los derechos reservados.</small>
+    </div>
+  </footer>
+
+	<script>
+		(function(){
+			const token = localStorage.getItem('token');
+			if(!token) { location = 'login.html'; return; }
+			const nav = document.getElementById('navActions');
+			const logged = document.getElementById('loggedActions');
+			if(nav) nav.style.display = 'none';
+			if(logged) logged.style.display = 'flex';
+			const btn = document.getElementById('logoutBtnNav');
+			if(btn) btn.onclick = () => { localStorage.removeItem('token'); location.reload(); };
+
+			// setup search
+			const searchBtn = document.getElementById('searchBtn');
+			const input = document.getElementById('searchInput');
+			const resultsArea = document.getElementById('resultsArea');
+			function renderContacts(list){
+				if(!list || list.length===0) return '<p>No se encontraron contactos.</p>';
+				return '<h4>Contactos</h4>' +
+					'<ul class="list-group mb-3">' +
+					list.map(c=>`<li class="list-group-item">${c.nombre} ${c.email?'- '+c.email:''} ${c.edad?'- '+c.edad+' años':''}</li>`).join('') +
+					'</ul>';
+			}
+			function renderGoogle(data){
+				if(!data || !data.items) return '';
+				return '<h4>Resultados de Google</h4>' +
+				data.items.map(i=>`<p><a href="${i.link}" target="_blank">${i.title}</a><br><small>${i.snippet}</small></p>`).join('');
+			}
+			async function doSearch(){
+				const q = input.value.trim();
+				if(!q) return;
+				resultsArea.innerHTML = '<p>Cargando...</p>';
+				try{
+					const headers = { 'Authorization': 'Bearer ' + token };
+					const [cRes,gRes] = await Promise.all([
+						fetch('/api/search?query='+encodeURIComponent(q),{headers}),
+						fetch('/api/search/google?query='+encodeURIComponent(q),{headers})
+					]);
+					const contacts = await cRes.json();
+					const google = await gRes.json();
+					resultsArea.innerHTML = renderContacts(contacts) + renderGoogle(google);
+				}catch(e){
+					resultsArea.innerHTML = '<p class="text-danger">Error al buscar</p>';
+				}
+			}
+			searchBtn.addEventListener('click', doSearch);
+			input.addEventListener('keydown', e=>{ if(e.key==='Enter'){e.preventDefault(); doSearch();}});
+		})();
+	</script>
+</body>
+</html>
